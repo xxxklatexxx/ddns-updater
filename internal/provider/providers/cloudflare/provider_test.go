@@ -32,6 +32,14 @@ func newTestClient(server *httptest.Server) *http.Client {
 	}}
 }
 
+func TestValidateSettingsAcceptsUnderscoreInKey(t *testing.T) {
+	t.Parallel()
+
+	err := validateSettings("example.com", "you@example.com", "api_key_with_underscores", "", "zone-id", 300)
+
+	require.NoError(t, err)
+}
+
 func TestUpdateUsesCurrentCloudflareListAPI(t *testing.T) {
 	t.Parallel()
 

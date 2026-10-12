@@ -87,7 +87,7 @@ func New(data json.RawMessage, domain, owner string,
 }
 
 var (
-	keyRegex            = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	keyRegex            = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 	userServiceKeyRegex = regexp.MustCompile(`^v1\.0.+$`)
 	regexEmail          = regexp.MustCompile(`[a-zA-Z0-9-_.+]+@[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,10}`)
 )
