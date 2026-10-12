@@ -20,16 +20,35 @@
 }
 ```
 
+### Example with email and Global API Key
+
+```json
+{
+  "settings": [
+    {
+      "provider": "cloudflare",
+      "zone_identifier": "some id",
+      "domain": "domain.com",
+      "ttl": 600,
+      "email": "you@example.com",
+      "key": "your-global-api-key",
+      "ip_version": "ipv4",
+      "ipv6_suffix": ""
+    }
+  ]
+}
+```
+
 ### Compulsory parameters
 
 - `"zone_identifier"` is the Zone ID of your site, from the domain overview page written as *Zone ID*
 - `"domain"` is the domain to update. It can be `example.com` (root domain), `sub.example.com` (subdomain of `example.com`) or `*.example.com` for the wildcard.
 See [this issue comment for context](https://github.com/qdm12/ddns-updater/issues/243#issuecomment-928313949). This is left as is for compatibility.
 - `"ttl"` integer value for record TTL in seconds (specify 1 for automatic)
-- One of the following ([how to find API keys](https://developers.cloudflare.com/fundamentals/api/get-started/)):
-  - Email `"email"` and Global API Key `"key"`
-  - User service key `"user_service_key"`
-  - API Token `"token"`, configured with DNS edit permissions for your DNS name's zone
+- API Token `"token"` (recommended), configured with DNS edit permissions for your zone
+- Alternatively, Email `"email"` and Global API Key `"key"` (legacy authentication)
+
+The `"user_service_key"` setting is retained for backward compatibility, but is not one of the authentication methods documented by Cloudflare's current DNS API. Migrate to an API Token when possible.
 
 ### Optional parameters
 

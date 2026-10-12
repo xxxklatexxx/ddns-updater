@@ -34,6 +34,19 @@ type Provider struct {
 	ttl            uint32
 }
 
+type apiError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func formatAPIErrors(apiErrors []apiError) string {
+	var sb strings.Builder
+	for _, apiError := range apiErrors {
+		fmt.Fprintf(&sb, "error %d: %s; ", apiError.Code, apiError.Message)
+	}
+	return sb.String()
+}
+
 func New(data json.RawMessage, domain, owner string,
 	ipVersion ipversion.IPVersion, ipv6Suffix netip.Prefix) (
 	p *Provider, err error,
@@ -205,8 +218,8 @@ func (p *Provider) getRecordID(ctx context.Context, client *http.Client, newIP n
 
 	decoder := json.NewDecoder(response.Body)
 	listRecordsResponse := struct {
-		Success bool     `json:"success"`
-		Errors  []string `json:"errors"`
+		Success bool       `json:"success"`
+		Errors  []apiError `json:"errors"`
 		Result  []struct {
 			ID      string `json:"id"`
 			Content string `json:"content"`
@@ -220,7 +233,7 @@ func (p *Provider) getRecordID(ctx context.Context, client *http.Client, newIP n
 	switch {
 	case len(listRecordsResponse.Errors) > 0:
 		return "", false, fmt.Errorf("%w: %s",
-			errors.ErrUnsuccessful, strings.Join(listRecordsResponse.Errors, ","))
+			errors.ErrUnsuccessful, formatAPIErrors(listRecordsResponse.Errors))
 	case !listRecordsResponse.Success:
 		return "", false, fmt.Errorf("%w", errors.ErrUnsuccessful)
 	case len(listRecordsResponse.Result) == 0:
@@ -281,19 +294,16 @@ func (p *Provider) createRecord(ctx context.Context, client *http.Client, ip net
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode > http.StatusUnsupportedMediaType {
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return "", fmt.Errorf("%w: %d: %s",
 			errors.ErrHTTPStatusNotValid, response.StatusCode, utils.BodyToSingleLine(response.Body))
 	}
 
 	decoder := json.NewDecoder(response.Body)
 	var parsedJSON struct {
-		Success bool `json:"success"`
-		Errors  []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		Result struct {
+		Success bool       `json:"success"`
+		Errors  []apiError `json:"errors"`
+		Result  struct {
 			ID string `json:"id"`
 		} `json:"result"`
 	}
@@ -303,11 +313,7 @@ func (p *Provider) createRecord(ctx context.Context, client *http.Client, ip net
 	}
 
 	if !parsedJSON.Success {
-		var sb strings.Builder
-		for _, e := range parsedJSON.Errors {
-			fmt.Fprintf(&sb, "error %d: %s; ", e.Code, e.Message)
-		}
-		return "", fmt.Errorf("%w: %s", errors.ErrUnsuccessful, sb.String())
+		return "", fmt.Errorf("%w: %s", errors.ErrUnsuccessful, formatAPIErrors(parsedJSON.Errors))
 	}
 
 	return parsedJSON.Result.ID, nil
@@ -378,19 +384,16 @@ func (p *Provider) Update(ctx context.Context, client *http.Client, ip netip.Add
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode > http.StatusUnsupportedMediaType {
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return netip.Addr{}, fmt.Errorf("%w: %d: %s",
 			errors.ErrHTTPStatusNotValid, response.StatusCode, utils.BodyToSingleLine(response.Body))
 	}
 
 	decoder := json.NewDecoder(response.Body)
 	var parsedJSON struct {
-		Success bool `json:"success"`
-		Errors  []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		Result struct {
+		Success bool       `json:"success"`
+		Errors  []apiError `json:"errors"`
+		Result  struct {
 			Content string `json:"content"`
 		} `json:"result"`
 	}
@@ -400,11 +403,8 @@ func (p *Provider) Update(ctx context.Context, client *http.Client, ip netip.Add
 	}
 
 	if !parsedJSON.Success {
-		var sb strings.Builder
-		for _, e := range parsedJSON.Errors {
-			fmt.Fprintf(&sb, "error %d: %s; ", e.Code, e.Message)
-		}
-		return netip.Addr{}, fmt.Errorf("%w: %s", errors.ErrUnsuccessful, sb.String())
+		return netip.Addr{}, fmt.Errorf("%w: %s",
+			errors.ErrUnsuccessful, formatAPIErrors(parsedJSON.Errors))
 	}
 
 	newIP, err = netip.ParseAddr(parsedJSON.Result.Content)
